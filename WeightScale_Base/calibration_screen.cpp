@@ -83,7 +83,7 @@ void calibration_screen_create(lv_obj_t *parent)
     } profiles[] = {
         {"RAW", CAL_EVT_PROFILE_1KG},
         {"1KG", CAL_EVT_PROFILE_100KG},
-        {"10KG", CAL_EVT_PROFILE_500KG}
+        {"500KG", CAL_EVT_PROFILE_500KG}
     };
 
     for(int i=0;i<3;i++)
