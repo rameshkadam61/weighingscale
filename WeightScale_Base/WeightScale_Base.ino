@@ -89,7 +89,8 @@ static const scale_profile_t PROFILE_500KG =
       //2148.8,
       2137.5,
     0.35f,
-    0.002f,
+    //0.002f,
+    0.08f,
     500
 };
 

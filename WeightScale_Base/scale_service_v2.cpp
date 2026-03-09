@@ -2,6 +2,10 @@
 #include <HX711.h>
 #include <math.h>
 
+// ***** ADDED *****
+// display stability step (1 decimal)
+#define DISPLAY_STEP 0.1f
+
 #define HX711_DOUT 43
 #define HX711_SCK  44
 //#define HX711_DOUT 19
@@ -19,14 +23,21 @@ static scale_profile_t activeProfile =
     //1200
       1.0f,
     //61287.5,
-      58281.3,
+     //
+     //58281.3,
+      2137.5,
     0.35f,
-    0.002f,
+    0.08f,
     500
 };
 
 static float filtered_weight = 0;
 static bool hold_state = false;
+
+// ***** ADDED *****
+// stable display value
+static float display_weight = 0;
+
 
 static TaskHandle_t scaleTaskHandle = NULL;
 
@@ -38,12 +49,12 @@ static float ema(float prev, float input, float alpha)
 static void scale_task(void *p)
 {
     scale.begin(HX711_DOUT, HX711_SCK);
-    delay(2000);
+    delay(3000);
 
     scale.set_scale(activeProfile.scale);
     scale.tare();
 
-    const int SAMPLE_COUNT = 8;     // 🔥 industrial averaging window
+    const int SAMPLE_COUNT = 16;     // 🔥 industrial averaging window
     float samples[SAMPLE_COUNT];
     int index = 0;
     bool buffer_full = false;
@@ -89,10 +100,15 @@ static void scale_task(void *p)
                     last_valid,
                     activeProfile.ema_alpha
                 );
+                 // ***** ADDED *****
+                // quantize to 1 decimal internally
+                filtered_weight = roundf(filtered_weight * 10.0f) / 10.0f;
+            
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(25));   // faster loop = smoother response
+        //vTaskDelay(pdMS_TO_TICKS(25));   // faster loop = smoother response
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
@@ -124,6 +140,17 @@ void scale_service_set_profile(const scale_profile_t *profile)
 
 float scale_service_get_weight()
 {
+
+  // ***** MODIFIED *****
+    // stable display with hysteresis
+
+    float rounded = roundf(filtered_weight * 10.0f) / 10.0f;
+
+    if (fabs(rounded - display_weight) >= DISPLAY_STEP)
+    {
+        display_weight = rounded;
+    }
+
     return filtered_weight;
 }
 
