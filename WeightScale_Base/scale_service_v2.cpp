@@ -25,7 +25,8 @@ static scale_profile_t activeProfile =
     //61287.5,
      //
      //58281.3,
-      2137.4,
+      //2137.4,
+      2131.5,
     0.35f,
     0.08f,
     500
