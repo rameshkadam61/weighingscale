@@ -1,12 +1,10 @@
 #include "scale_service_v2.h"
 #include <HX711.h>
 #include <math.h>
-// ***** ADDED *****
-// values below this will be forced to zero
-#define ZERO_CLAMP 0.25f
+
 // ***** ADDED *****
 // display stability step (1 decimal)
-#define DISPLAY_STEP 0.1f
+//#define DISPLAY_STEP 0.1f
 
 #define HX711_DOUT 43
 #define HX711_SCK  44
@@ -28,7 +26,7 @@ static scale_profile_t activeProfile =
      //
      //58281.3,
       //2137.4,
-      2131.5,
+         2131.5,
     0.35f,
     0.08f,
     500
@@ -56,11 +54,6 @@ static void scale_task(void *p)
 
     scale.set_scale(activeProfile.scale);
     scale.tare();
-
-// ***** ADDED *****
-// ensure display starts from 0.000
-filtered_weight = 0.0f;
-display_weight = 0.0f;
 
     const int SAMPLE_COUNT = 16;     // 🔥 industrial averaging window
     float samples[SAMPLE_COUNT];
@@ -96,27 +89,26 @@ display_weight = 0.0f;
 
                 float avg = sum / SAMPLE_COUNT;
 
-             if(fabs(avg - last_valid) < activeProfile.hold_threshold)
-{
-    last_valid = avg;
-}
+                /* ---------- SPIKE REJECTION ---------- */
+                if(fabs(avg - last_valid) < activeProfile.hold_threshold)
+                {
+                    last_valid = avg;
+                }
+
                 /* ---------- EMA SMOOTH ---------- */
-filtered_weight = ema(
-    filtered_weight,
-    last_valid,
-    activeProfile.ema_alpha
-);
-
-// round first
-filtered_weight = roundf(filtered_weight * 10.0f) / 10.0f;
-
-// clamp near zero
-if (fabs(filtered_weight) < ZERO_CLAMP)
+                filtered_weight = ema(
+                    filtered_weight,
+                    last_valid,
+                    activeProfile.ema_alpha
+                );
+                 // ***** ADDED *****
+                // quantize to 1 decimal internally
+               filtered_weight = roundf(filtered_weight * 1000.0f) / 1000.0f;
+               // force near-zero values to exactly 0.000
+        if (fabs(filtered_weight) < 0.005f)
 {
-    filtered_weight = 0.0f;
+    filtered_weight = 0.000f;
 }
-// quantize to 1 decimal internally
-filtered_weight = roundf(filtered_weight * 10.0f) / 10.0f;
             
             }
         }
@@ -147,33 +139,17 @@ void scale_service_set_profile(const scale_profile_t *profile)
 
     activeProfile = *profile;
     scale.set_scale(activeProfile.scale);
-    
-filtered_weight = 0;
-display_weight = 0;   // ***** ADDED *****
-hold_state = false;
+
+    filtered_weight = 0;
+    hold_state = false;
 }
 
-float scale_service_get_weight()
+
+   float scale_service_get_weight()
 {
-
-  // ***** MODIFIED *****
-    // stable display with hysteresis
-
-    float rounded = roundf(filtered_weight * 10.0f) / 10.0f;
-
-   // ***** ADDED *****
-// hard lock zero
-if (fabs(filtered_weight) < ZERO_CLAMP)
-{
-    display_weight = 0.0f;
+    return roundf(filtered_weight * 1000.0f) / 1000.0f;
 }
-else if (fabs(rounded - display_weight) >= DISPLAY_STEP)
-{
-    display_weight = rounded;
-}
-// ***** MODIFIED *****
-return display_weight;
-}
+
 
 bool scale_service_is_hold()
 {
