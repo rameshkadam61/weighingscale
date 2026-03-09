@@ -2,10 +2,6 @@
 #include <HX711.h>
 #include <math.h>
 
-// ***** ADDED *****
-// display stability step (1 decimal)
-//#define DISPLAY_STEP 0.1f
-
 #define HX711_DOUT 43
 #define HX711_SCK  44
 //#define HX711_DOUT 19
@@ -23,10 +19,8 @@ static scale_profile_t activeProfile =
     //1200
       1.0f,
     //61287.5,
-     //
-     //58281.3,
-      //2137.4,
-         2131.5,
+      //58281.3,
+      2131.5,
     0.35f,
     0.08f,
     500
@@ -34,11 +28,6 @@ static scale_profile_t activeProfile =
 
 static float filtered_weight = 0;
 static bool hold_state = false;
-
-// ***** ADDED *****
-// stable display value
-static float display_weight = 0;
-
 
 static TaskHandle_t scaleTaskHandle = NULL;
 
@@ -90,7 +79,7 @@ static void scale_task(void *p)
                 float avg = sum / SAMPLE_COUNT;
 
                 /* ---------- SPIKE REJECTION ---------- */
-                if(fabs(avg - last_valid) < activeProfile.hold_threshold)
+                if(fabs(avg - last_valid) > activeProfile.hold_threshold)
                 {
                     last_valid = avg;
                 }
@@ -101,20 +90,10 @@ static void scale_task(void *p)
                     last_valid,
                     activeProfile.ema_alpha
                 );
-                 // ***** ADDED *****
-                // quantize to 1 decimal internally
-               filtered_weight = roundf(filtered_weight * 1000.0f) / 1000.0f;
-               // force near-zero values to exactly 0.000
-        if (fabs(filtered_weight) < 0.005f)
-{
-    filtered_weight = 0.000f;
-}
-            
             }
         }
 
-        //vTaskDelay(pdMS_TO_TICKS(25));   // faster loop = smoother response
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(50));   // faster loop = smoother response
     }
 }
 
@@ -144,12 +123,10 @@ void scale_service_set_profile(const scale_profile_t *profile)
     hold_state = false;
 }
 
-
-   float scale_service_get_weight()
+float scale_service_get_weight()
 {
-    return roundf(filtered_weight * 1000.0f) / 1000.0f;
+    return filtered_weight;
 }
-
 
 bool scale_service_is_hold()
 {
