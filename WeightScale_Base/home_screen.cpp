@@ -256,7 +256,7 @@ void home_screen_set_weight(float w)
     if(!lbl_weight) return;
 
     static char buf[32];
-    snprintf(buf, sizeof(buf), "%.3f kg", w);
+    snprintf(buf, sizeof(buf), "%.1f kg", w);
     lv_label_set_text(lbl_weight, buf);
 }
 
